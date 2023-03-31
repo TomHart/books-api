@@ -1,15 +1,32 @@
 mod books;
 
-use actix_web::{get, post, put, web, App, HttpResponse, HttpServer, Responder, http::header};
-use std::fs::OpenOptions;
+use actix_web::{get, put, web, App, HttpResponse, HttpServer, Responder, http::header};
 use std::fs;
 use json;
 use crate::books::structs::{Book, Books};
 
 #[get("/books")]
 async fn books_route() -> impl Responder {
-    let books: Books = books::get().expect("Getting error");
+    let books: Books = books::get();
     let string: String = serde_json::to_string(&books).expect("Err");
+
+    HttpResponse::Ok()
+        .insert_header(header::ContentType::json())
+        .body(string)
+}
+
+#[get("/books/{book_id}")]
+async fn index(path: web::Path<String>) -> impl Responder {
+    let book_id = path.into_inner();
+
+    let book_result = books::get_by_id(book_id);
+
+    let book: Book = match book_result {
+        Ok(book) => book,
+        Err(_err) => return HttpResponse::NotFound().finish()
+    };
+
+    let string: String = serde_json::to_string(&book).expect("Err");
 
     HttpResponse::Ok()
         .insert_header(header::ContentType::json())
@@ -18,7 +35,7 @@ async fn books_route() -> impl Responder {
 
 #[put("/books")]
 async fn add_book(form: web::Json<Book>) -> impl Responder {
-    let books: Books = books::add_book(form.into_inner()).expect("Error adding book");
+    let books: Books = books::add_book(form.into_inner());
     let string: String = serde_json::to_string_pretty(&books).expect("Err");
     HttpResponse::Ok()
         .insert_header(header::ContentType::json())
@@ -42,7 +59,7 @@ fn init_json() -> bool {
 }
 
 fn create_json() -> String {
-    OpenOptions::new().write(true)
+    fs::OpenOptions::new().write(true)
         .create_new(true)
         .open("data.json").expect("Couldn't create data.json");
 
@@ -57,16 +74,12 @@ async fn main() -> std::io::Result<()> {
         println!("Can't create data_.json");
     }
 
-    // books::get().expect("Something failed");
-    // println!("Books: {}", books::get().expect("Err"));
-
     println!("Started");
     HttpServer::new(|| {
         App::new()
             .service(books_route)
             .service(add_book)
-            .service(hello)
-            .service(echo)
+            .service(index)
             .route("/hey", web::get().to(manual_hello))
     })
         .bind(("127.0.0.1", 8080))?

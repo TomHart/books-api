@@ -42,9 +42,6 @@ async fn add_book(form: web::Json<Book>) -> impl Responder {
         .body(string)
 }
 
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
-}
 
 fn init_json() -> bool {
     let raw_json = fs::read_to_string("data.json").unwrap_or_else(|_error| {
@@ -71,16 +68,15 @@ fn create_json() -> String {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     if !init_json() {
-        println!("Can't create data_.json");
+        println!("Can't create data.json");
     }
 
-    println!("Started");
+    println!("Starting");
     HttpServer::new(|| {
         App::new()
             .service(books_route)
             .service(add_book)
             .service(index)
-            .route("/hey", web::get().to(manual_hello))
     })
         .bind(("127.0.0.1", 8080))?
         .run()
